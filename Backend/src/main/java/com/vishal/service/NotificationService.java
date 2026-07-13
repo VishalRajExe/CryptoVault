@@ -9,7 +9,7 @@ public interface NotificationService {
 
     /** Creates and persists a notification for one user. Fire-and-forget: callers
      *  should not let a notification failure block the action that triggered it. */
-    Notification create(User user, String type, String message, Long amount);
+    Notification create(User user, String type, String message, java.math.BigDecimal amount);
 
     List<Notification> getForUser(User user);
 

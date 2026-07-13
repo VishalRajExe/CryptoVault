@@ -3,11 +3,14 @@ import { motion } from 'framer-motion';
 import { Users, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import { getAllUsers } from '../../api/admin';
+import Pagination from '../../components/Pagination';
 
 export default function AdminUsers() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     getAllUsers()
@@ -15,6 +18,9 @@ export default function AdminUsers() {
       .catch((e) => setError(e.friendlyMessage || 'Could not load users.'))
       .finally(() => setLoading(false));
   }, []);
+
+  const totalPages = Math.ceil(users.length / itemsPerPage);
+  const currentUsers = users.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
     <div className="pb-16">
@@ -40,8 +46,9 @@ export default function AdminUsers() {
               <p className="text-sm text-ink-muted">No users yet.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-ink-faint text-xs uppercase tracking-wide font-mono-tab">
                     <th className="px-5 sm:px-6 py-3 font-normal">User</th>
@@ -53,7 +60,7 @@ export default function AdminUsers() {
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((u) => (
+                  {currentUsers.map((u) => (
                     <tr key={u.id} className="border-t border-white/[0.05]">
                       <td className="px-5 sm:px-6 py-3.5">
                         <div className="flex items-center gap-2.5">
@@ -102,6 +109,12 @@ export default function AdminUsers() {
                 </tbody>
               </table>
             </div>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
+          </>
           )}
         </motion.div>
       </div>

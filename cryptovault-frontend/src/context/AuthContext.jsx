@@ -27,9 +27,21 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  const logout = useCallback(() => {
+    localStorage.removeItem('cv_jwt');
+    setJwt(null);
+    setUser(null);
+  }, []);
+
   useEffect(() => {
     loadProfile();
-  }, [loadProfile]);
+
+    const handleUnauthorized = () => {
+      logout();
+    };
+    window.addEventListener('auth_unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('auth_unauthorized', handleUnauthorized);
+  }, [loadProfile, logout]);
 
   const login = useCallback(
     async (token) => {
@@ -41,11 +53,6 @@ export function AuthProvider({ children }) {
     [loadProfile]
   );
 
-  const logout = useCallback(() => {
-    localStorage.removeItem('cv_jwt');
-    setJwt(null);
-    setUser(null);
-  }, []);
 
   return (
     <AuthContext.Provider value={{ user, jwt, loading, login, logout, refresh: loadProfile, setUser }}>

@@ -34,6 +34,7 @@ export default function InteractiveChart({
   selectedRange = 7,
   loading = false,
   className = '',
+  hideTimeRanges = false,
 }) {
   const containerRef = useRef(null);
   const chartRef = useRef(null);
@@ -198,6 +199,56 @@ export default function InteractiveChart({
 
     seriesRef.current.setData(formatted);
     chartRef.current?.timeScale().fitContent();
+
+    // Live simulation
+    let lastPoint = { ...formatted[formatted.length - 1] };
+    const volatility = 0.0015; // Slightly higher volatility for dramatic effect
+    let tickCount = 0;
+    
+    // Estimate candle spacing
+    const timeSpacing = formatted.length > 1 
+      ? formatted[formatted.length - 1].time - formatted[formatted.length - 2].time 
+      : 3600;
+
+    const interval = setInterval(() => {
+      if (!seriesRef.current) return;
+      tickCount++;
+
+      const val = lastPoint.close ?? lastPoint.value;
+      const newClose = val * (1 + (Math.random() - 0.5) * volatility);
+
+      if (tickCount % 4 === 0) {
+        // Form a new candle every 4 ticks
+        lastPoint = {
+          time: lastPoint.time + timeSpacing,
+          open: lastPoint.close ?? val,
+          high: Math.max(lastPoint.close ?? val, newClose),
+          low: Math.min(lastPoint.close ?? val, newClose),
+          close: newClose,
+          value: newClose
+        };
+      } else {
+        // Wiggle the current candle
+        if (chartType === 'candlestick') {
+          lastPoint = {
+            ...lastPoint,
+            close: newClose,
+            high: Math.max(lastPoint.high, newClose),
+            low: Math.min(lastPoint.low, newClose),
+          };
+        } else {
+          lastPoint = {
+            ...lastPoint,
+            value: newClose,
+            close: newClose
+          };
+        }
+      }
+      
+      seriesRef.current.update(lastPoint);
+    }, 1000);
+
+    return () => clearInterval(interval);
   }, [data, chartType]);
 
   const formatPrice = (v) => {
@@ -246,21 +297,23 @@ export default function InteractiveChart({
         </div>
 
         {/* Time range */}
-        <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-void-900/60 p-0.5">
-          {TIME_RANGES.map((r) => (
-            <button
-              key={r.label}
-              onClick={() => onRangeChange?.(r.days)}
-              className={`px-2.5 py-1.5 rounded-md text-[11px] font-display font-semibold transition-all ${
-                selectedRange === r.days
-                  ? 'bg-white/[0.08] text-ink'
-                  : 'text-ink-faint hover:text-ink'
-              }`}
-            >
-              {r.label}
-            </button>
-          ))}
-        </div>
+        {!hideTimeRanges && (
+          <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-void-900/60 p-0.5">
+            {TIME_RANGES.map((r) => (
+              <button
+                key={r.label}
+                onClick={() => onRangeChange?.(r.days)}
+                className={`px-2.5 py-1.5 rounded-md text-[11px] font-display font-semibold transition-all ${
+                  selectedRange === r.days
+                    ? 'bg-white/[0.08] text-ink'
+                    : 'text-ink-faint hover:text-ink'
+                }`}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Chart area */}

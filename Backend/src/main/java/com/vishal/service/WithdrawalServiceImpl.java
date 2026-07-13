@@ -19,7 +19,7 @@ public class WithdrawalServiceImpl implements WithdrawalService{
 
 
     @Override
-    public Withdrawal requestWithdrawal(Long amount,User user) {
+    public Withdrawal requestWithdrawal(java.math.BigDecimal amount,User user) {
         Withdrawal withdrawal=new Withdrawal();
         withdrawal.setAmount(amount);
         withdrawal.setStatus(WithdrawalStatus.PENDING);

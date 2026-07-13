@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Briefcase, ArrowUpRight, ArrowDownRight, TrendingUp } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
@@ -16,13 +16,28 @@ export default function Portfolio() {
   const [assets, setAssets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const sparklinesRef = useRef({});
 
   const loadData = async (isPoll = false) => {
     try {
       const data = await getUserAssets();
-      setAssets(
-        Array.isArray(data) ? data.map((a) => ({ ...a, coin: normalizeCoin(a.coin) })) : []
-      );
+      const loadedAssets = Array.isArray(data) ? data.map((a) => ({ ...a, coin: normalizeCoin(a.coin) })) : [];
+      
+      setAssets(prev => {
+        return loadedAssets.map(newAsset => {
+          const oldAsset = prev.find(p => p.id === newAsset.id);
+          // Preserve locally evolved currentPrice so we don't jump back to stale DB prices
+          if (oldAsset && isPoll) {
+            newAsset.coin.currentPrice = oldAsset.coin.currentPrice;
+          }
+          
+          if (!sparklinesRef.current[newAsset.id]) {
+            sparklinesRef.current[newAsset.id] = generateCandles(24, newAsset.coin?.currentPrice || 100, 0.02).map(c => c.close);
+          }
+          return newAsset;
+        });
+      });
+
       if (!isPoll) setLoading(false);
     } catch (e) {
       setError(e.friendlyMessage || 'Could not load your portfolio.');
@@ -32,11 +47,39 @@ export default function Portfolio() {
 
   useEffect(() => {
     loadData();
-
-    // Poll every 30s to update portfolio current value dynamically
+    // Poll every 30s just to catch any new assets added/removed
     const interval = setInterval(() => loadData(true), 30000);
     return () => clearInterval(interval);
   }, []);
+
+  // Real-time tick effect for portfolio values and graphs
+  useEffect(() => {
+    if (assets.length === 0) return;
+    
+    let tickCount = 0;
+    const interval = setInterval(() => {
+      tickCount++;
+      setAssets(prev => prev.map(a => {
+        const price = a.coin?.currentPrice || 100;
+        const newVal = price * (1 + (Math.random() - 0.5) * 0.002); // Jitter price slightly
+
+        if (tickCount % 2 === 0 && sparklinesRef.current[a.id]) {
+          const spark = sparklinesRef.current[a.id];
+          sparklinesRef.current[a.id] = [...spark.slice(1), newVal];
+        }
+        
+        return {
+          ...a,
+          coin: {
+            ...a.coin,
+            currentPrice: newVal
+          }
+        };
+      }));
+    }, 1500);
+
+    return () => clearInterval(interval);
+  }, [assets.length]);
 
   const totalValue = assets.reduce((s, a) => s + (a.quantity || 0) * (a.coin?.currentPrice || 0), 0);
   const totalCost = assets.reduce((s, a) => s + (a.quantity || 0) * (a.buyPrice || 0), 0);
@@ -121,7 +164,7 @@ export default function Portfolio() {
                     const value = (a.quantity || 0) * (a.coin?.currentPrice || 0);
                     const pnl = value - (a.quantity || 0) * (a.buyPrice || 0);
                     const up = pnl >= 0;
-                    const spark = generateCandles(24, a.coin?.currentPrice || 100, 0.02).map((c) => c.close);
+                    const spark = sparklinesRef.current[a.id] || [];
                     return (
                       <tr key={a.id} className="hover:bg-white/[0.01] transition-colors">
                         <td className="px-5 sm:px-6 py-4">

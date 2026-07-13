@@ -118,7 +118,11 @@ function LoginForm({ onSwitch, onForgot }) {
         navigate('/app');
       }
     } catch (err) {
-      setApiError(err.friendlyMessage || 'Unable to sign in. Check your credentials.');
+      if (err.fieldErrors && Object.keys(err.fieldErrors).length > 0) {
+        setErrors(err.fieldErrors);
+      } else {
+        setApiError(err.friendlyMessage || 'Unable to sign in. Check your credentials.');
+      }
     } finally {
       setLoading(false);
     }
@@ -213,13 +217,13 @@ function LoginForm({ onSwitch, onForgot }) {
         placeholder="you@example.com"
         value={form.email}
         error={errors.email}
-        onChange={(e) => setForm({ ...form, email: e.target.value })}
+        onChange={(e) => { setForm({ ...form, email: e.target.value }); setErrors({ ...errors, email: null }); }}
         autoComplete="email"
       />
       <PasswordField
         value={form.password}
         error={errors.password}
-        onChange={(e) => setForm({ ...form, password: e.target.value })}
+        onChange={(e) => { setForm({ ...form, password: e.target.value }); setErrors({ ...errors, password: null }); }}
       />
 
       <div className="flex justify-end -mt-2">
@@ -292,7 +296,11 @@ function RegisterForm({ onSwitch }) {
         navigate('/app');
       }
     } catch (err) {
-      setApiError(err.friendlyMessage || 'Unable to create your account.');
+      if (err.fieldErrors && Object.keys(err.fieldErrors).length > 0) {
+        setErrors(err.fieldErrors);
+      } else {
+        setApiError(err.friendlyMessage || 'Unable to create your account.');
+      }
     } finally {
       setLoading(false);
     }
@@ -328,7 +336,7 @@ function RegisterForm({ onSwitch }) {
         placeholder="Full name"
         value={form.fullName}
         error={errors.fullName}
-        onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+        onChange={(e) => { setForm({ ...form, fullName: e.target.value }); setErrors({ ...errors, fullName: null }); }}
         autoComplete="name"
       />
       <Field
@@ -337,7 +345,7 @@ function RegisterForm({ onSwitch }) {
         placeholder="you@example.com"
         value={form.email}
         error={errors.email}
-        onChange={(e) => setForm({ ...form, email: e.target.value })}
+        onChange={(e) => { setForm({ ...form, email: e.target.value }); setErrors({ ...errors, email: null }); }}
         autoComplete="email"
       />
       <Field
@@ -346,7 +354,7 @@ function RegisterForm({ onSwitch }) {
         placeholder="Mobile number"
         value={form.mobile}
         error={errors.mobile}
-        onChange={(e) => setForm({ ...form, mobile: e.target.value })}
+        onChange={(e) => { setForm({ ...form, mobile: e.target.value }); setErrors({ ...errors, mobile: null }); }}
         autoComplete="tel"
       />
       <div>
@@ -354,7 +362,7 @@ function RegisterForm({ onSwitch }) {
           name="newPassword"
           value={form.password}
           error={errors.password}
-          onChange={(e) => setForm({ ...form, password: e.target.value })}
+          onChange={(e) => { setForm({ ...form, password: e.target.value }); setErrors({ ...errors, password: null }); }}
           placeholder="Create a password"
         />
         {form.password && (

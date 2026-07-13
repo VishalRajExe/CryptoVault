@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Activity, ArrowDownLeft, ArrowUpRight, Send, UserPlus } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import { getAllActivity } from '../../api/admin';
+import Pagination from '../../components/Pagination';
 
 const typeIcon = {
   SIGNUP: { icon: UserPlus, color: 'text-violet-400 bg-violet-600/15' },
@@ -21,6 +22,8 @@ export default function AdminActivity() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('ALL');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     getAllActivity()
@@ -31,6 +34,13 @@ export default function AdminActivity() {
 
   const types = ['ALL', ...new Set(items.map((i) => i.type))];
   const filtered = filter === 'ALL' ? items : items.filter((i) => i.type === filter);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter]);
+
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const currentItems = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
     <div className="pb-16">
@@ -75,30 +85,37 @@ export default function AdminActivity() {
               <p className="text-sm text-ink-muted">No activity recorded yet.</p>
             </div>
           ) : (
-            <div className="divide-y divide-white/[0.05]">
-              {filtered.map((n) => {
-                const meta = typeIcon[n.type] || { icon: Activity, color: 'text-ink-muted bg-white/5' };
-                const Icon = meta.icon;
-                return (
-                  <div key={n.id} className="flex items-start gap-3 px-5 sm:px-6 py-3.5">
-                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${meta.color}`}>
-                      <Icon size={15} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-sm text-ink font-medium truncate">
-                          {n.user?.fullName || n.user?.email || 'Unknown user'}
-                        </span>
-                        <span className="text-xs text-ink-faint font-mono-tab shrink-0">
-                          {n.timestamp ? new Date(n.timestamp).toLocaleString() : ''}
-                        </span>
+            <>
+              <div className="divide-y divide-white/[0.05]">
+                {currentItems.map((n) => {
+                  const meta = typeIcon[n.type] || { icon: Activity, color: 'text-ink-muted bg-white/5' };
+                  const Icon = meta.icon;
+                  return (
+                    <div key={n.id} className="flex items-start gap-3 px-5 sm:px-6 py-3.5">
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${meta.color}`}>
+                        <Icon size={15} />
                       </div>
-                      <p className="text-xs text-ink-muted mt-0.5">{n.message}</p>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-sm text-ink font-medium truncate">
+                            {n.user?.fullName || n.user?.email || 'Unknown user'}
+                          </span>
+                          <span className="text-xs text-ink-faint font-mono-tab shrink-0">
+                            {n.timestamp ? new Date(n.timestamp).toLocaleString() : ''}
+                          </span>
+                        </div>
+                        <p className="text-xs text-ink-muted mt-0.5">{n.message}</p>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            </>
           )}
         </motion.div>
       </div>

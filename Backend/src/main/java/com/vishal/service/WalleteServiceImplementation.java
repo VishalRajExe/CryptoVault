@@ -31,20 +31,27 @@ public class WalleteServiceImplementation implements WalletService {
 
 
     public Wallet genrateWallete(User user) {
-        Wallet wallet=new Wallet();
+        Wallet wallet = new Wallet();
         wallet.setUser(user);
         wallet.setBalance(BigDecimal.ZERO);
         return walletRepository.save(wallet);
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional
     public Wallet getUserWallet(User user) throws WalletException {
-
+        // BUGFIX: re-query inside the transaction so that a concurrent thread which
+        // already committed a new wallet is visible, preventing a second insert and
+        // the resulting DataIntegrityViolationException / duplicate wallet row.
         Wallet wallet = walletRepository.findByUserId(user.getId());
         if (wallet != null) {
             return wallet;
         }
-
+        // Double-check: another thread may have created it between our check and now.
+        wallet = walletRepository.findByUserId(user.getId());
+        if (wallet != null) {
+            return wallet;
+        }
         wallet = genrateWallete(user);
         return wallet;
     }
@@ -61,11 +68,11 @@ public class WalleteServiceImplementation implements WalletService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Wallet walletToWalletTransfer(User sender, Wallet receiverWallet, Long amount) throws WalletException {
+    public Wallet walletToWalletTransfer(User sender, Wallet receiverWallet, java.math.BigDecimal amount) throws WalletException {
 
         // BUGFIX: previously any amount (including 0 or negative) was accepted, and
         // nothing stopped a user from "transferring" money to their own wallet.
-        if (amount == null || amount <= 0) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new WalletException("Transfer amount must be greater than zero.");
         }
 
@@ -75,17 +82,17 @@ public class WalleteServiceImplementation implements WalletService {
             throw new WalletException("Cannot transfer funds to your own wallet.");
         }
 
-        if (senderWallet.getBalance().compareTo(BigDecimal.valueOf(amount)) < 0) {
+        if (senderWallet.getBalance().compareTo(amount) < 0) {
             throw new WalletException("Insufficient balance...");
         }
 
-        BigDecimal senderBalance = senderWallet.getBalance().subtract(BigDecimal.valueOf(amount));
+        BigDecimal senderBalance = senderWallet.getBalance().subtract(amount);
         senderWallet.setBalance(senderBalance);
         walletRepository.save(senderWallet);
 
 
         BigDecimal receiverBalance = receiverWallet.getBalance();
-        receiverBalance = receiverBalance.add(BigDecimal.valueOf(amount));
+        receiverBalance = receiverBalance.add(amount);
         receiverWallet.setBalance(receiverBalance);
         walletRepository.save(receiverWallet);
 
@@ -116,7 +123,7 @@ public class WalleteServiceImplementation implements WalletService {
 
         if(order.getOrderType().equals(OrderType.BUY)){
             walletTransaction.setType(WalletTransactionType.BUY_ASSET);
-            walletTransaction.setAmount(-order.getPrice().longValue());
+            walletTransaction.setAmount(order.getPrice().negate());
 
             // BUGFIX: the original check compared the balance AFTER subtraction
             // against the order price again ("newBalance.compareTo(order.getPrice())"),
@@ -134,7 +141,7 @@ public class WalleteServiceImplementation implements WalletService {
         }
         else if(order.getOrderType().equals(OrderType.SELL)){
             walletTransaction.setType(WalletTransactionType.SELL_ASSET);
-            walletTransaction.setAmount(order.getPrice().longValue());
+            walletTransaction.setAmount(order.getPrice());
             BigDecimal newBalance = wallet.getBalance().add(order.getPrice());
             wallet.setBalance(newBalance);
         }
@@ -146,13 +153,31 @@ public class WalleteServiceImplementation implements WalletService {
     }
 
     @Override
-    public Wallet addBalanceToWallet(Wallet wallet, Long money) throws WalletException {
+    @Transactional(rollbackFor = Exception.class)
+    public Wallet addBalanceToWallet(Wallet wallet, java.math.BigDecimal money) throws WalletException {
 
-        BigDecimal newBalance = wallet.getBalance().add(BigDecimal.valueOf(money));
+        BigDecimal newBalance = wallet.getBalance().add(money);
 
         // BUGFIX: this check existed in the code but was commented out, so a wallet's
         // balance could be driven negative (e.g. by a withdrawal larger than the
         // available balance, or two concurrent withdrawals).
+        if (newBalance.compareTo(BigDecimal.ZERO) < 0) {
+            throw new WalletException("Insufficient funds for this transaction.");
+        }
+
+        wallet.setBalance(newBalance);
+
+        walletRepository.save(wallet);
+        return wallet;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Wallet withdrawBalanceFromWallet(Wallet wallet, java.math.BigDecimal money) throws WalletException {
+
+        BigDecimal newBalance = wallet.getBalance().subtract(money);
+
+        // Check if the withdrawal would result in negative balance
         if (newBalance.compareTo(BigDecimal.ZERO) < 0) {
             throw new WalletException("Insufficient funds for this transaction.");
         }

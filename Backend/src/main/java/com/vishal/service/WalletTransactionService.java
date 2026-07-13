@@ -11,7 +11,7 @@ public interface WalletTransactionService {
                                         WalletTransactionType type,
                                         String transferId,
                                         String purpose,
-                                        Long amount
+                                        java.math.BigDecimal amount
     );
 
     List<WalletTransaction> getTransactions(Wallet wallet, WalletTransactionType type);

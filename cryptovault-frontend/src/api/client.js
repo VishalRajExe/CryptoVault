@@ -25,6 +25,7 @@ client.interceptors.response.use(
     // while `message` ends up holding the request URI (e.g. "uri=/api/orders/pay").
     // We read `error` first so the real message is shown instead of a raw URI string.
     const data = err?.response?.data;
+    const status = err?.response?.status;
     const looksLikeUri = (s) => typeof s === 'string' && /^uri=/i.test(s.trim());
 
     let message =
@@ -33,12 +34,34 @@ client.interceptors.response.use(
       err?.message ||
       'Something went wrong. Please try again.';
 
+    // Refine message based on HTTP status codes
+    if (status === 400) {
+      // 400 could be validation errors, keeping the backend message is usually best
+    } else if (status === 401) {
+      message = 'Your session has expired. Please log in again.';
+      window.dispatchEvent(new CustomEvent('auth_unauthorized'));
+    } else if (status === 403) {
+      message = 'You do not have permission to perform this action.';
+    } else if (status === 404) {
+      message = 'The requested resource could not be found.';
+    } else if (status === 409) {
+      message = 'A conflict occurred (e.g., resource already exists).';
+    } else if (status === 422) {
+      message = 'Invalid data provided. Please check your inputs.';
+    } else if (status === 429) {
+      message = 'Too many requests. Please try again later.';
+    } else if (status >= 500) {
+      message = data?.error || data?.message || 'An internal server error occurred. Please try again later.';
+    } else if (!err.response) {
+      message = 'Network error. Please check your internet connection.';
+    }
+
     // Final safety net: never show a raw "uri=..." string to the user.
     if (looksLikeUri(message)) {
       message = 'Something went wrong. Please try again.';
     }
 
-    return Promise.reject({ ...err, friendlyMessage: message });
+    return Promise.reject({ ...err, friendlyMessage: message, fieldErrors: data?.fieldErrors || data?.details || {} });
   }
 );
 

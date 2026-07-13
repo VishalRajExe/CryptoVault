@@ -23,7 +23,7 @@ public class WalletTransactionServiceImpl implements WalletTransactionService{
                                                WalletTransactionType type,
                                                String transferId,
                                                String purpose,
-                                               Long amount
+                                               java.math.BigDecimal amount
     ) {
         WalletTransaction transaction = new WalletTransaction();
         transaction.setWallet(wallet);

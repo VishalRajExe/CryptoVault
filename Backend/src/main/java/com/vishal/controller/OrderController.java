@@ -4,6 +4,8 @@ import com.vishal.model.Coin;
 import com.vishal.model.Order;
 import com.vishal.model.User;
 import com.vishal.request.CreateOrderRequest;
+import com.vishal.domain.USER_ROLE;
+import com.vishal.exception.UserException;
 import com.vishal.service.CoinService;
 import com.vishal.service.OrderService;
 import com.vishal.service.UserService;
@@ -49,20 +51,25 @@ public class OrderController {
 
     ) throws Exception {
         User user = userSerivce.findUserProfileByJwt(jwt);
-        Coin coin =coinService.findById(req.getCoinId());
 
+        // Trading requires email verification. Admin accounts are exempt.
+        if (user.getRole() != USER_ROLE.ROLE_ADMIN && !user.isVerified()) {
+            throw new UserException("Email verification required before trading. Please verify your account.");
+        }
 
-            Order order = orderService.processOrder(coin,req.getQuantity(),req.getOrderType(),user);
+        Coin coin = coinService.findById(req.getCoinId());
 
-            notificationService.create(
-                    user,
-                    "ORDER_" + order.getOrderType(),
-                    order.getOrderType() + " " + req.getQuantity() + " " + coin.getSymbol().toUpperCase()
-                            + " for $" + order.getPrice() + ".",
-                    order.getPrice() != null ? order.getPrice().longValue() : null
-            );
+        Order order = orderService.processOrder(coin, req.getQuantity(), req.getOrderType(), user);
 
-            return ResponseEntity.ok(order);
+        notificationService.create(
+                user,
+                "ORDER_" + order.getOrderType(),
+                order.getOrderType() + " " + req.getQuantity() + " " + coin.getSymbol().toUpperCase()
+                        + " for $" + order.getPrice() + ".",
+                order.getPrice()
+        );
+
+        return ResponseEntity.ok(order);
 
     }
 

@@ -201,6 +201,9 @@ public class AuthController {
 
 
 		TwoFactorOTP twoFactorOTP = twoFactorOtpService.findById(id);
+		if (twoFactorOTP == null) {
+			throw new Exception("OTP session not found or expired.");
+		}
 
 		if(twoFactorOtpService.verifyTwoFactorOtp(twoFactorOTP,otp)){
 			AuthResponse authResponse = new AuthResponse();

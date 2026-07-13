@@ -27,6 +27,7 @@ import {
 import { createPaymentOrder } from '../../api/payment';
 import { formatCurrency } from '../../utils/chartData';
 import { useToast } from '../../context/ToastContext';
+import Pagination from '../../components/Pagination';
 
 const txIcon = {
   DEPOSIT: { icon: ArrowDownLeft, color: 'text-mint bg-mint-900/50' },
@@ -100,7 +101,7 @@ function DepositModal({ onClose, onDone }) {
 
       throw new Error('No payment link returned.');
     } catch (err) {
-      setError(err.friendlyMessage || err.message || 'Deposit failed.');
+      setError(err.friendlyMessage || err.response?.data?.message || err.message || 'Deposit failed.');
     } finally {
       submittingRef.current = false;
       setLoading(false);
@@ -113,11 +114,11 @@ function DepositModal({ onClose, onDone }) {
 
         <div>
           <label className="text-xs text-ink-faint mb-1.5 block">
-            Amount (USD)
+            Amount (INR)
           </label>
 
           <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-void-900/60 px-4 py-3 focus-within:border-mint/50 transition-colors">
-            <span className="text-ink-faint">$</span>
+            <span className="text-ink-faint">₹</span>
 
             <input
               type="number"
@@ -125,7 +126,7 @@ function DepositModal({ onClose, onDone }) {
               step="1"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              placeholder="100"
+              placeholder="1000"
               className="flex-1 bg-transparent outline-none text-sm text-ink font-mono-tab"
               autoFocus
             />
@@ -133,14 +134,14 @@ function DepositModal({ onClose, onDone }) {
         </div>
 
         <div className="flex gap-2">
-          {[50, 100, 500, 1000].map((v) => (
+          {[1000, 5000, 10000, 50000].map((v) => (
             <button
               key={v}
               type="button"
               onClick={() => setAmount(String(v))}
               className="flex-1 py-2 rounded-lg border border-white/10 text-xs text-ink-muted hover:bg-white/[0.05] transition-colors"
             >
-              ${v}
+              ₹{v}
             </button>
           ))}
         </div>
@@ -214,7 +215,7 @@ function WithdrawModal({ onClose, onDone, hasPaymentDetails }) {
       onDone();
       onClose();
     } catch (err) {
-      setError(err.friendlyMessage || 'Withdrawal failed.');
+      setError(err.friendlyMessage || err.response?.data?.message || 'Withdrawal failed.');
     } finally {
       submittingRef.current = false;
       setLoading(false);
@@ -271,15 +272,25 @@ function BankDetailsModal({ onClose, onDone, existing }) {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [errors, setErrors] = useState({});
   const { push } = useToast();
   const submittingRef = useRef(false);
 
   const submit = async (e) => {
     e.preventDefault();
     if (submittingRef.current) return;
-    setError('');
-    if (!form.accountHolderName || !form.accountNumber || !form.ifsc || !form.bankName) {
-      setError('All fields are required.');
+    setErrors({});
+    
+    const validationErrors = {};
+    if (!form.accountHolderName.trim()) validationErrors.accountHolderName = 'Account holder name is required';
+    if (!form.accountNumber.trim()) validationErrors.accountNumber = 'Account number is required';
+    else if (form.accountNumber.trim().length < 8) validationErrors.accountNumber = 'Account number must be at least 8 digits';
+    if (!form.ifsc.trim()) validationErrors.ifsc = 'IFSC code is required';
+    else if (form.ifsc.trim().length !== 11) validationErrors.ifsc = 'IFSC code must be exactly 11 characters';
+    if (!form.bankName.trim()) validationErrors.bankName = 'Bank name is required';
+    
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
       return;
     }
     submittingRef.current = true;
@@ -290,7 +301,11 @@ function BankDetailsModal({ onClose, onDone, existing }) {
       onDone();
       onClose();
     } catch (err) {
-      setError(err.friendlyMessage || 'Could not save bank details.');
+      if (err.fieldErrors && Object.keys(err.fieldErrors).length > 0) {
+        setErrors(err.fieldErrors);
+      } else {
+        setError(err.friendlyMessage || err.response?.data?.message || 'Could not save bank details.');
+      }
     } finally {
       submittingRef.current = false;
       setLoading(false);
@@ -300,30 +315,42 @@ function BankDetailsModal({ onClose, onDone, existing }) {
   return (
     <Modal title="Bank details" onClose={onClose}>
       <form onSubmit={submit} className="space-y-3">
-        <input
-          placeholder="Account holder name"
-          value={form.accountHolderName}
-          onChange={(e) => setForm({ ...form, accountHolderName: e.target.value })}
-          className="w-full rounded-xl border border-white/10 bg-void-900/60 px-4 py-3 text-sm text-ink outline-none focus:border-mint/50 placeholder:text-ink-faint"
-        />
-        <input
-          placeholder="Account number"
-          value={form.accountNumber}
-          onChange={(e) => setForm({ ...form, accountNumber: e.target.value })}
-          className="w-full rounded-xl border border-white/10 bg-void-900/60 px-4 py-3 text-sm text-ink outline-none focus:border-mint/50 placeholder:text-ink-faint"
-        />
-        <input
-          placeholder="IFSC code"
-          value={form.ifsc}
-          onChange={(e) => setForm({ ...form, ifsc: e.target.value })}
-          className="w-full rounded-xl border border-white/10 bg-void-900/60 px-4 py-3 text-sm text-ink outline-none focus:border-mint/50 placeholder:text-ink-faint"
-        />
-        <input
-          placeholder="Bank name"
-          value={form.bankName}
-          onChange={(e) => setForm({ ...form, bankName: e.target.value })}
-          className="w-full rounded-xl border border-white/10 bg-void-900/60 px-4 py-3 text-sm text-ink outline-none focus:border-mint/50 placeholder:text-ink-faint"
-        />
+        <div>
+          <input
+            placeholder="Account holder name"
+            value={form.accountHolderName}
+            onChange={(e) => { setForm({ ...form, accountHolderName: e.target.value }); setErrors({ ...errors, accountHolderName: null }); }}
+            className={`w-full rounded-xl border bg-void-900/60 px-4 py-3 text-sm text-ink outline-none placeholder:text-ink-faint ${errors.accountHolderName ? 'border-carmine/50 focus:border-carmine' : 'border-white/10 focus:border-mint/50'}`}
+          />
+          {errors.accountHolderName && <p className="mt-1.5 text-xs text-carmine">{errors.accountHolderName}</p>}
+        </div>
+        <div>
+          <input
+            placeholder="Account number"
+            value={form.accountNumber}
+            onChange={(e) => { setForm({ ...form, accountNumber: e.target.value }); setErrors({ ...errors, accountNumber: null }); }}
+            className={`w-full rounded-xl border bg-void-900/60 px-4 py-3 text-sm text-ink outline-none placeholder:text-ink-faint ${errors.accountNumber ? 'border-carmine/50 focus:border-carmine' : 'border-white/10 focus:border-mint/50'}`}
+          />
+          {errors.accountNumber && <p className="mt-1.5 text-xs text-carmine">{errors.accountNumber}</p>}
+        </div>
+        <div>
+          <input
+            placeholder="IFSC code"
+            value={form.ifsc}
+            onChange={(e) => { setForm({ ...form, ifsc: e.target.value }); setErrors({ ...errors, ifsc: null }); }}
+            className={`w-full rounded-xl border bg-void-900/60 px-4 py-3 text-sm text-ink outline-none placeholder:text-ink-faint ${errors.ifsc ? 'border-carmine/50 focus:border-carmine' : 'border-white/10 focus:border-mint/50'}`}
+          />
+          {errors.ifsc && <p className="mt-1.5 text-xs text-carmine">{errors.ifsc}</p>}
+        </div>
+        <div>
+          <input
+            placeholder="Bank name"
+            value={form.bankName}
+            onChange={(e) => { setForm({ ...form, bankName: e.target.value }); setErrors({ ...errors, bankName: null }); }}
+            className={`w-full rounded-xl border bg-void-900/60 px-4 py-3 text-sm text-ink outline-none placeholder:text-ink-faint ${errors.bankName ? 'border-carmine/50 focus:border-carmine' : 'border-white/10 focus:border-mint/50'}`}
+          />
+          {errors.bankName && <p className="mt-1.5 text-xs text-carmine">{errors.bankName}</p>}
+        </div>
         {error && (
           <div className="text-sm text-carmine bg-carmine/10 border border-carmine/20 rounded-lg px-3.5 py-2.5">
             {error}
@@ -331,7 +358,7 @@ function BankDetailsModal({ onClose, onDone, existing }) {
         )}
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || !form.accountHolderName.trim() || form.accountNumber.trim().length < 8 || form.ifsc.trim().length !== 11 || !form.bankName.trim()}
           className="w-full flex items-center justify-center gap-2 rounded-xl bg-mint text-void font-display font-semibold text-sm py-3.5 shadow-mint hover:bg-mint-400 transition-colors disabled:opacity-60"
         >
           {loading ? <Loader2 size={16} className="animate-spin" /> : 'Save details'}
@@ -387,7 +414,7 @@ function TransferModal({ onClose, onDone, myWalletId }) {
       onDone();
       onClose();
     } catch (err) {
-      setError(err.friendlyMessage || 'Transfer failed.');
+      setError(err.friendlyMessage || err.response?.data?.message || 'Transfer failed.');
     } finally {
       submittingRef.current = false;
       setLoading(false);
@@ -477,6 +504,10 @@ export default function Wallet() {
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null); // 'deposit' | 'withdraw' | 'bank'
   const [activeTab, setActiveTab] = useState('ledger'); // 'ledger' | 'withdrawals'
+  
+  const [currentPageLedger, setCurrentPageLedger] = useState(1);
+  const [currentPageWithdrawals, setCurrentPageWithdrawals] = useState(1);
+  const itemsPerPage = 10;
 
   const loadAll = () => {
     setLoading(true);
@@ -497,6 +528,12 @@ export default function Wallet() {
   useEffect(() => {
     loadAll();
   }, []);
+
+  const totalPagesLedger = Math.ceil(transactions.length / itemsPerPage);
+  const currentTransactions = transactions.slice((currentPageLedger - 1) * itemsPerPage, currentPageLedger * itemsPerPage);
+
+  const totalPagesWithdrawals = Math.ceil(withdrawals.length / itemsPerPage);
+  const currentWithdrawals = withdrawals.slice((currentPageWithdrawals - 1) * itemsPerPage, currentPageWithdrawals * itemsPerPage);
 
   return (
     <div className="pb-16">
@@ -611,61 +648,75 @@ export default function Wallet() {
             transactions.length === 0 ? (
               <div className="p-12 text-center text-sm text-ink-muted">No transactions in ledger.</div>
             ) : (
-              <div className="divide-y divide-white/[0.05]">
-                {transactions.map((t) => {
-                  const meta = txIcon[t.type] || txIcon.DEPOSIT;
-                  const Icon = meta.icon;
-                  const positive = (t.amount || 0) >= 0;
-                  return (
-                    <div key={t.id} className="flex items-center justify-between gap-4 px-5 sm:px-6 py-3.5 hover:bg-white/[0.01] transition-colors">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${meta.color}`}>
-                          <Icon size={15} />
+              <>
+                <div className="divide-y divide-white/[0.05]">
+                  {currentTransactions.map((t) => {
+                    const meta = txIcon[t.type] || txIcon.DEPOSIT;
+                    const Icon = meta.icon;
+                    const positive = (t.amount || 0) >= 0;
+                    return (
+                      <div key={t.id} className="flex items-center justify-between gap-4 px-5 sm:px-6 py-3.5 hover:bg-white/[0.01] transition-colors">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${meta.color}`}>
+                            <Icon size={15} />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-sm text-ink truncate">{t.purpose || t.type?.replace(/_/g, ' ')}</div>
+                            <div className="text-xs text-ink-faint">{t.date ? new Date(t.date).toLocaleDateString() : ''}</div>
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <div className="text-sm text-ink truncate">{t.purpose || t.type?.replace(/_/g, ' ')}</div>
-                          <div className="text-xs text-ink-faint">{t.date ? new Date(t.date).toLocaleDateString() : ''}</div>
-                        </div>
+                        <span className={`font-mono-tab text-sm font-medium shrink-0 ${positive ? 'text-mint' : 'text-carmine'}`}>
+                          {positive ? '+' : ''}
+                          {formatCurrency(t.amount)}
+                        </span>
                       </div>
-                      <span className={`font-mono-tab text-sm font-medium shrink-0 ${positive ? 'text-mint' : 'text-carmine'}`}>
-                        {positive ? '+' : ''}
-                        {formatCurrency(t.amount)}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+                <Pagination
+                  currentPage={currentPageLedger}
+                  totalPages={totalPagesLedger}
+                  onPageChange={setCurrentPageLedger}
+                />
+              </>
             )
           ) : withdrawals.length === 0 ? (
             <div className="p-12 text-center text-sm text-ink-muted">No withdrawal requests placed yet.</div>
           ) : (
-            <div className="divide-y divide-white/[0.05]">
-              {withdrawals.map((w) => {
-                const statusColors = {
-                  PENDING: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
-                  SUCCESS: 'text-mint bg-mint-900/40 border-mint/20',
-                  DECLINE: 'text-carmine bg-carmine/10 border-carmine/20',
-                };
-                return (
-                  <div key={w.id} className="flex items-center justify-between gap-4 px-5 sm:px-6 py-3.5 hover:bg-white/[0.01] transition-colors">
-                    <div className="min-w-0">
-                      <div className="text-sm text-ink font-medium">Bank Withdrawal Request</div>
-                      <div className="text-xs text-ink-faint mt-0.5">
-                        {w.date ? new Date(w.date).toLocaleString() : ''}
+            <>
+              <div className="divide-y divide-white/[0.05]">
+                {currentWithdrawals.map((w) => {
+                  const statusColors = {
+                    PENDING: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
+                    SUCCESS: 'text-mint bg-mint-900/40 border-mint/20',
+                    DECLINE: 'text-carmine bg-carmine/10 border-carmine/20',
+                  };
+                  return (
+                    <div key={w.id} className="flex items-center justify-between gap-4 px-5 sm:px-6 py-3.5 hover:bg-white/[0.01] transition-colors">
+                      <div className="min-w-0">
+                        <div className="text-sm text-ink font-medium">Bank Withdrawal Request</div>
+                        <div className="text-xs text-ink-faint mt-0.5">
+                          {w.date ? new Date(w.date).toLocaleString() : ''}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3.5">
+                        <span className="font-mono-tab text-sm font-semibold text-ink">
+                          {formatCurrency(w.amount)}
+                        </span>
+                        <span className={`text-[10px] font-mono-tab px-2 py-0.5 rounded-full border ${statusColors[w.status] || 'text-ink-muted border-white/10'}`}>
+                          {w.status}
+                        </span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3.5">
-                      <span className="font-mono-tab text-sm font-semibold text-ink">
-                        {formatCurrency(w.amount)}
-                      </span>
-                      <span className={`text-[10px] font-mono-tab px-2 py-0.5 rounded-full border ${statusColors[w.status] || 'text-ink-muted border-white/10'}`}>
-                        {w.status}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+              <Pagination
+                currentPage={currentPageWithdrawals}
+                totalPages={totalPagesWithdrawals}
+                onPageChange={setCurrentPageWithdrawals}
+              />
+            </>
           )}
         </motion.div>
       </div>

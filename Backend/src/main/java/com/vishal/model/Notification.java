@@ -38,7 +38,7 @@ public class Notification {
     private String message;
 
     /** Optional dollar amount associated with the event, for display formatting. */
-    private Long amount;
+    private java.math.BigDecimal amount;
 
     private LocalDateTime timestamp = LocalDateTime.now();
 

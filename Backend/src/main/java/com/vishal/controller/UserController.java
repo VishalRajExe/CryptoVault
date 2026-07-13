@@ -1,5 +1,7 @@
 package com.vishal.controller;
 
+import com.vishal.domain.OtpVerificationResult;
+import com.vishal.domain.UserStatus;
 import com.vishal.domain.VerificationType;
 import com.vishal.exception.UserException;
 import com.vishal.model.ForgotPasswordToken;
@@ -83,7 +85,6 @@ public class UserController {
 
 		User user = userService.findUserProfileByJwt(jwt);
 
-
 		VerificationCode verificationCode = verificationService.findUsersVerification(user);
 
 		if (verificationCode == null) {
@@ -94,16 +95,20 @@ public class UserController {
 				? verificationCode.getEmail()
 				: verificationCode.getMobile();
 
+		OtpVerificationResult result = verificationService.verifyOtp(otp, verificationCode);
 
-		boolean isVerified = verificationService.VerifyOtp(otp, verificationCode);
-
-		if (isVerified) {
-			User updatedUser = userService.enabledTwoFactorAuthentication(
-					verificationCode.getVerificationType(), sendTo, user);
-			verificationService.deleteVerification(verificationCode);
-			return ResponseEntity.ok(updatedUser);
+		if (result == OtpVerificationResult.EXPIRED) {
+			throw new Exception("OTP has expired. Please request a new one.");
 		}
-		throw new Exception("wrong otp");
+		if (result == OtpVerificationResult.INVALID) {
+			throw new Exception("Invalid OTP. Please check your code and try again.");
+		}
+
+		// SUCCESS
+		User updatedUser = userService.enabledTwoFactorAuthentication(
+				verificationCode.getVerificationType(), sendTo, user);
+		verificationService.deleteVerification(verificationCode);
+		return ResponseEntity.ok(updatedUser);
 
 	}
 
@@ -115,6 +120,9 @@ public class UserController {
 			@RequestBody ResetPasswordRequest req
 			) throws Exception {
 		ForgotPasswordToken forgotPasswordToken=forgotPasswordService.findById(id);
+		if (forgotPasswordToken == null) {
+			throw new Exception("Password reset session not found or expired.");
+		}
 
 			boolean isVerified = forgotPasswordService.verifyToken(forgotPasswordToken,req.getOtp());
 
@@ -162,68 +170,6 @@ public class UserController {
 
 	}
 
-	@PatchMapping("/api/users/verification/verify-otp/{otp}")
-	public ResponseEntity<User> verifyOTP(
-			@RequestHeader("Authorization") String jwt,
-			@PathVariable String otp
-	) throws Exception {
-
-
-		User user = userService.findUserProfileByJwt(jwt);
-
-
-		VerificationCode verificationCode = verificationService.findUsersVerification(user);
-
-		if (verificationCode == null) {
-			throw new Exception("No verification code found. Please request a new OTP first.");
-		}
-
-
-		boolean isVerified = verificationService.VerifyOtp(otp, verificationCode);
-
-		if (isVerified) {
-			verificationService.deleteVerification(verificationCode);
-			User verifiedUser = userService.verifyUser(user);
-			verifiedUser = userRepository.save(verifiedUser);
-					return ResponseEntity.ok(verifiedUser);
-		}
-		throw new Exception("wrong otp");
-
-	}
-
-	@PostMapping("/api/users/verification/{verificationType}/send-otp")
-	public ResponseEntity<String> sendVerificationOTP(
-			@PathVariable VerificationType verificationType,
-			@RequestHeader("Authorization") String jwt)
-            throws Exception {
-
-		User user = userService.findUserProfileByJwt(jwt);
-
-		// BUGFIX: previously, if a VerificationCode row already existed for this user
-		// (e.g. left over from an earlier "send code" click, an abandoned 2FA-enable
-		// attempt, or a cancelled email-verification flow), this endpoint silently
-		// reused the OLD code instead of generating and emailing a new one. The UI
-		// always said "code sent", so the user had no way to know the code in their
-		// inbox was stale - entering what looked like a freshly-requested code would
-		// fail against the original row, and clicking "send" again did nothing new,
-		// which is exactly the "I have to do it multiple times" symptom. Always
-		// delete any existing code first so every click genuinely sends a fresh OTP.
-		VerificationCode verificationCode = verificationService.findUsersVerification(user);
-		if (verificationCode != null) {
-			verificationService.deleteVerification(verificationCode);
-		}
-		verificationCode = verificationService.sendVerificationOTP(user, verificationType);
-
-
-		if(verificationType.equals(VerificationType.EMAIL)){
-			emailService.sendVerificationOtpEmail(user.getEmail(), verificationCode.getOtp());
-		}
-
-
-
-		return ResponseEntity.ok("Verification OTP sent successfully.");
-
-	}
 
 	/** New endpoint backing the Security page's "Mobile number" card, which
 	 *  previously had no way to actually save a number at all. */

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, Star, Loader2, ArrowUpRight, ArrowDownRight, ChevronDown,
 } from 'lucide-react';
-import CandleChart from '../../components/CandleChart';
+import InteractiveChart from '../../components/InteractiveChart';
 import { getCoinList, searchCoins, getTop50, getMarketChart } from '../../api/coins';
 import {
   addToWatchlist, getUserWatchlist, getAllOrders, placeOrder, getWallet,
@@ -26,6 +26,7 @@ const SORTS = [
 ];
 
 const TIMEFRAMES = [
+  { key: 'now', label: 'Now' },
   { key: '1', label: '1D' },
   { key: '7', label: '7D' },
   { key: '30', label: '1M' },
@@ -83,6 +84,28 @@ export default function Markets() {
     refreshOrders();
   }, []);
 
+  // Real-time tick effect for market prices
+  useEffect(() => {
+    const jitter = (arr) => arr.map(c => {
+      const price = c.currentPrice;
+      if (price == null) return c;
+      const newVal = price * (1 + (Math.random() - 0.5) * 0.002);
+      return { ...c, currentPrice: newVal };
+    });
+
+    const interval = setInterval(() => {
+      setCoins(prev => jitter(prev));
+      setTop50(prev => jitter(prev));
+      setSelected(prev => {
+        if (!prev || prev.currentPrice == null) return prev;
+        const newVal = prev.currentPrice * (1 + (Math.random() - 0.5) * 0.002);
+        return { ...prev, currentPrice: newVal };
+      });
+    }, 1500);
+
+    return () => clearInterval(interval);
+  }, []);
+
   const refreshOrders = () => {
     getAllOrders().then((data) => setOrders(Array.isArray(data) ? data : [])).catch(() => {});
   };
@@ -107,8 +130,15 @@ export default function Markets() {
   useEffect(() => {
     if (!selected?.id) return;
     setChartLoading(true);
-    getMarketChart(selected.id, timeframe)
-      .then((data) => setChartData(parseMarketChart(data)))
+    const fetchDays = timeframe === 'now' ? '1' : timeframe;
+    getMarketChart(selected.id, fetchDays)
+      .then((data) => {
+        let parsed = parseMarketChart(data);
+        if (timeframe === 'now') {
+          parsed = parsed.slice(-50); // Zoom in on the last 50 candles
+        }
+        setChartData(parsed);
+      })
       .catch(() => setChartData([]))
       .finally(() => setChartLoading(false));
   }, [selected?.id, timeframe]);
@@ -317,13 +347,11 @@ export default function Markets() {
                   <Loader2 size={16} className="animate-spin mr-2" /> Loading chart…
                 </div>
               ) : chartData.length ? (
-                <CandleChart
+                <InteractiveChart
                   data={chartData}
-                  width={900}
                   height={340}
-                  color="#D7FF4F"
-                  downColor="#FF3B69"
-                  animateNewCandle={false}
+                  defaultType="candlestick"
+                  hideTimeRanges={true}
                   className="w-full h-full"
                 />
               ) : (

@@ -155,6 +155,43 @@ export default function Overview() {
     return () => clearInterval(interval);
   }, []);
 
+  // Real-time tick effect for portfolio values
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (assets.length > 0) {
+        setAssets(prev => prev.map(a => {
+          const price = a.coin?.currentPrice || 100;
+          const newVal = price * (1 + (Math.random() - 0.5) * 0.002); // Jitter price slightly
+          return {
+            ...a,
+            coin: {
+              ...a.coin,
+              currentPrice: newVal
+            }
+          };
+        }));
+      }
+
+      setSelectedCoinDetails(prev => {
+        if (!prev || !prev.market_data?.current_price?.usd) return prev;
+        const val = prev.market_data.current_price.usd;
+        const newVal = val * (1 + (Math.random() - 0.5) * 0.002);
+        return {
+          ...prev,
+          market_data: {
+            ...prev.market_data,
+            current_price: {
+              ...prev.market_data.current_price,
+              usd: newVal
+            }
+          }
+        };
+      });
+    }, 1500);
+
+    return () => clearInterval(interval);
+  }, [assets.length]);
+
   // Fetch selected coin details
   useEffect(() => {
     fetchCoinDetails(selectedCoinId);

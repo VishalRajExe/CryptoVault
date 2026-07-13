@@ -340,6 +340,16 @@ String body="{\n" +
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         JSONObject requestBody = new JSONObject();
+
+        // System Instruction
+        JSONObject systemInstruction = new JSONObject();
+        JSONArray sysPartsArray = new JSONArray();
+        JSONObject sysTextObject = new JSONObject();
+        sysTextObject.put("text", "You are the AI assistant for CryptoVault, a crypto trading platform. Help users with the project. Give simple, easy, and very short answers. Do not text too much long answers. If they ask how to deposit money, tell them to go to the Wallets page.");
+        sysPartsArray.put(sysTextObject);
+        systemInstruction.put("parts", sysPartsArray);
+        requestBody.put("systemInstruction", systemInstruction);
+
         JSONArray contentsArray = new JSONArray();
         JSONObject contentsObject = new JSONObject();
         JSONArray partsArray = new JSONArray();

@@ -1,6 +1,8 @@
 package com.vishal.controller;
 
+import com.vishal.domain.USER_ROLE;
 import com.vishal.domain.WalletTransactionType;
+import com.vishal.exception.UserException;
 import com.vishal.exception.WalletException;
 import com.vishal.model.User;
 import com.vishal.model.Wallet;
@@ -38,24 +40,30 @@ public class WithdrawalController {
 
     @PostMapping("/api/withdrawal/{amount}")
     public ResponseEntity<?> withdrawalRequest(
-            @PathVariable Long amount,
+            @PathVariable java.math.BigDecimal amount,
             @RequestHeader("Authorization")String jwt) throws Exception {
 
         // BUGFIX: amount and balance were never validated before creating the
         // withdrawal request and deducting funds.
-        if (amount == null || amount <= 0) {
+        if (amount == null || amount.compareTo(java.math.BigDecimal.ZERO) <= 0) {
             throw new WalletException("Withdrawal amount must be greater than zero.");
         }
 
         User user=userService.findUserProfileByJwt(jwt);
+
+        // Withdrawals require email verification. Admin accounts are exempt.
+        if (user.getRole() != USER_ROLE.ROLE_ADMIN && !user.isVerified()) {
+            throw new UserException("Email verification required before withdrawing. Please verify your account.");
+        }
+
         Wallet userWallet=walletService.getUserWallet(user);
 
-        if (userWallet.getBalance().compareTo(java.math.BigDecimal.valueOf(amount)) < 0) {
+        if (userWallet.getBalance().compareTo(amount) < 0) {
             throw new WalletException("Insufficient wallet balance for this withdrawal.");
         }
 
         Withdrawal withdrawal=withdrawalService.requestWithdrawal(amount,user);
-        walletService.addBalanceToWallet(userWallet, -withdrawal.getAmount());
+        walletService.addBalanceToWallet(userWallet, withdrawal.getAmount().negate());
 
         WalletTransaction walletTransaction = walletTransactionService.createTransaction(
                 userWallet,

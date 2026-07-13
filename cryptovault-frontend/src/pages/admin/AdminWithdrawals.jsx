@@ -8,6 +8,7 @@ import EmptyState from '../../components/EmptyState';
 import { getAllWithdrawalRequests, proceedWithdrawal } from '../../api/admin';
 import { formatCurrency } from '../../utils/chartData';
 import { useToast } from '../../context/ToastContext';
+import Pagination from '../../components/Pagination';
 
 const statusColors = {
   PENDING: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
@@ -133,6 +134,9 @@ export default function AdminWithdrawals() {
   const [error, setError] = useState('');
   const [actingId, setActingId] = useState(null);
   const { push } = useToast();
+  const [currentPagePending, setCurrentPagePending] = useState(1);
+  const [currentPageResolved, setCurrentPageResolved] = useState(1);
+  const itemsPerPage = 10;
 
   // Confirmation modal state
   const [confirmModal, setConfirmModal] = useState({ open: false, withdrawal: null, isApprove: true });
@@ -180,6 +184,12 @@ export default function AdminWithdrawals() {
 
   const totalPendingAmount = pending.reduce((sum, w) => sum + (w.amount || 0), 0);
   const totalApprovedAmount = resolved.filter(w => w.status === 'SUCCESS').reduce((sum, w) => sum + (w.amount || 0), 0);
+
+  const totalPagesPending = Math.ceil(pending.length / itemsPerPage);
+  const currentPending = pending.slice((currentPagePending - 1) * itemsPerPage, currentPagePending * itemsPerPage);
+
+  const totalPagesResolved = Math.ceil(resolved.length / itemsPerPage);
+  const currentResolved = resolved.slice((currentPageResolved - 1) * itemsPerPage, currentPageResolved * itemsPerPage);
 
   return (
     <PageTransition className="pb-16">
@@ -232,39 +242,46 @@ export default function AdminWithdrawals() {
               description="There are currently no withdrawal requests pending audit."
             />
           ) : (
-            <div className="divide-y divide-white/[0.04]">
-              {pending.map((w) => (
-                <div key={w.id} className="flex items-center justify-between gap-4 px-5 sm:px-6 py-4 hover:bg-white/[0.01] transition-colors">
-                  <div>
-                    <div className="text-sm text-ink font-semibold">
-                      {w.user?.fullName || w.user?.email || 'Unknown user'}
+            <>
+              <div className="divide-y divide-white/[0.04]">
+                {currentPending.map((w) => (
+                  <div key={w.id} className="flex items-center justify-between gap-4 px-5 sm:px-6 py-4 hover:bg-white/[0.01] transition-colors">
+                    <div>
+                      <div className="text-sm text-ink font-semibold">
+                        {w.user?.fullName || w.user?.email || 'Unknown user'}
+                      </div>
+                      <div className="text-xs text-ink-faint font-mono-tab mt-0.5">
+                        Request ID #{w.id} · {w.date ? new Date(w.date).toLocaleString() : ''}
+                      </div>
                     </div>
-                    <div className="text-xs text-ink-faint font-mono-tab mt-0.5">
-                      Request ID #{w.id} · {w.date ? new Date(w.date).toLocaleString() : ''}
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono-tab text-base text-ink font-bold mr-2">{formatCurrency(w.amount)}</span>
+                      <button
+                        onClick={() => openConfirm(w, true)}
+                        disabled={actingId === w.id}
+                        className="w-9 h-9 rounded-xl bg-mint-900/40 text-mint border border-mint/20 flex items-center justify-center hover:bg-mint-900/60 transition-all disabled:opacity-50 shadow-mint-sm"
+                        title="Approve request"
+                      >
+                        {actingId === w.id ? <Loader2 size={14} className="animate-spin" /> : <Check size={15} />}
+                      </button>
+                      <button
+                        onClick={() => openConfirm(w, false)}
+                        disabled={actingId === w.id}
+                        className="w-9 h-9 rounded-xl bg-carmine/10 text-carmine border border-carmine/20 flex items-center justify-center hover:bg-carmine/20 transition-all disabled:opacity-50"
+                        title="Decline & refund"
+                      >
+                        <X size={15} />
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono-tab text-base text-ink font-bold mr-2">{formatCurrency(w.amount)}</span>
-                    <button
-                      onClick={() => openConfirm(w, true)}
-                      disabled={actingId === w.id}
-                      className="w-9 h-9 rounded-xl bg-mint-900/40 text-mint border border-mint/20 flex items-center justify-center hover:bg-mint-900/60 transition-all disabled:opacity-50 shadow-mint-sm"
-                      title="Approve request"
-                    >
-                      {actingId === w.id ? <Loader2 size={14} className="animate-spin" /> : <Check size={15} />}
-                    </button>
-                    <button
-                      onClick={() => openConfirm(w, false)}
-                      disabled={actingId === w.id}
-                      className="w-9 h-9 rounded-xl bg-carmine/10 text-carmine border border-carmine/20 flex items-center justify-center hover:bg-carmine/20 transition-all disabled:opacity-50"
-                      title="Decline & refund"
-                    >
-                      <X size={15} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+              <Pagination
+                currentPage={currentPagePending}
+                totalPages={totalPagesPending}
+                onPageChange={setCurrentPagePending}
+              />
+            </>
           )}
         </motion.div>
 
@@ -280,7 +297,7 @@ export default function AdminWithdrawals() {
               <span className="font-display text-xs font-bold text-ink uppercase tracking-wider">Processed History</span>
             </div>
             <div className="divide-y divide-white/[0.04]">
-              {resolved.map((w) => (
+              {currentResolved.map((w) => (
                 <div key={w.id} className="flex items-center justify-between gap-4 px-5 sm:px-6 py-3.5 hover:bg-white/[0.01] transition-colors">
                   <div>
                     <div className="text-sm text-ink font-semibold">{w.user?.fullName || w.user?.email || 'Unknown user'}</div>
@@ -301,6 +318,11 @@ export default function AdminWithdrawals() {
                 </div>
               ))}
             </div>
+            <Pagination
+              currentPage={currentPageResolved}
+              totalPages={totalPagesResolved}
+              onPageChange={setCurrentPageResolved}
+            />
           </motion.div>
         )}
       </div>

@@ -1,9 +1,10 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -15,6 +16,15 @@ export default function ProtectedRoute({ children }) {
 
   if (!user) {
     return <Navigate to="/auth?mode=login" replace />;
+  }
+
+  // Check if user is unverified and trying to access financial pages
+  const isEmailVerified = !!(user.isVerified || user.verified);
+  const isUnverified = !isEmailVerified;
+  const currentPath = location.pathname;
+  
+  if (isUnverified && currentPath.startsWith('/app') && !currentPath.startsWith('/app/security') && !currentPath.startsWith('/app/admin')) {
+    return <Navigate to="/app/security" replace />;
   }
 
   return children;

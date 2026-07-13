@@ -160,11 +160,11 @@ export default function Security() {
       if (updatedUser) {
         setUser(updatedUser);
       } else {
-        setUser((prev) => (prev ? { ...prev, isVerified: true, verified: true } : prev));
+        setUser((prev) => (prev ? { ...prev, isVerified: true, verified: true, status: 'VERIFIED' } : prev));
       }
       await refresh();
     } catch (e) {
-      push(e.friendlyMessage || 'Invalid code.', 'error');
+      push(e.friendlyMessage || e.response?.data?.message || 'Invalid code.', 'error');
     } finally {
       setVerifyLoading(false);
     }
@@ -232,10 +232,11 @@ export default function Security() {
           </div>
         </motion.div>
 
-        {/* Email verification */}
-        <motion.div
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
+        {/* Email verification - Hidden for Admin */}
+        {user?.role !== 'ROLE_ADMIN' && (
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.06 }}
           className="rounded-2xl border border-white/[0.07] bg-void-800/60 p-6"
         >
@@ -269,11 +270,13 @@ export default function Security() {
             </div>
           </div>
         </motion.div>
+        )}
 
-        {/* 2FA */}
-        <motion.div
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
+        {/* 2FA - Hidden for Admin */}
+        {user?.role !== 'ROLE_ADMIN' && (
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.12 }}
           className="rounded-2xl border border-white/[0.07] bg-void-800/60 p-6"
         >
@@ -309,6 +312,7 @@ export default function Security() {
             </div>
           </div>
         </motion.div>
+        )}
 
         {/* Info cards */}
         <motion.div

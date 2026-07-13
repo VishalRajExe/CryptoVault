@@ -16,7 +16,7 @@ public class NotificationServiceImpl implements NotificationService {
     private NotificationRepository notificationRepository;
 
     @Override
-    public Notification create(User user, String type, String message, Long amount) {
+    public Notification create(User user, String type, String message, java.math.BigDecimal amount) {
         Notification notification = new Notification();
         notification.setUser(user);
         notification.setType(type);

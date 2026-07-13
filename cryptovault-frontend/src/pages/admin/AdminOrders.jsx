@@ -4,6 +4,7 @@ import { ArrowLeftRight, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import { getAllOrders } from '../../api/admin';
 import { formatCurrency } from '../../utils/chartData';
+import Pagination from '../../components/Pagination';
 
 const statusColors = {
   PENDING: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
@@ -17,6 +18,8 @@ export default function AdminOrders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     getAllOrders()
@@ -24,6 +27,9 @@ export default function AdminOrders() {
       .catch((e) => setError(e.friendlyMessage || 'Could not load orders.'))
       .finally(() => setLoading(false));
   }, []);
+
+  const totalPages = Math.ceil(orders.length / itemsPerPage);
+  const currentOrders = orders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
     <div className="pb-16">
@@ -49,8 +55,9 @@ export default function AdminOrders() {
               <p className="text-sm text-ink-muted">No orders placed yet.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-ink-faint text-xs uppercase tracking-wide font-mono-tab">
                     <th className="px-5 sm:px-6 py-3 font-normal">Order</th>
@@ -63,7 +70,7 @@ export default function AdminOrders() {
                   </tr>
                 </thead>
                 <tbody>
-                  {orders.map((o) => (
+                  {currentOrders.map((o) => (
                     <tr key={o.id} className="border-t border-white/[0.05]">
                       <td className="px-5 sm:px-6 py-3.5 font-mono-tab text-ink-faint text-xs">#{o.id}</td>
                       <td className="px-4 py-3.5 text-ink text-xs truncate max-w-[10rem]">
@@ -105,6 +112,12 @@ export default function AdminOrders() {
                 </tbody>
               </table>
             </div>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
+          </>
           )}
         </motion.div>
       </div>

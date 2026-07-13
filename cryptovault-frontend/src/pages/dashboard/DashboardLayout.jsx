@@ -20,6 +20,9 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
+import { sendVerificationOtp, verifyAccountOtp } from '../../api/auth';
+import { Loader2, AlertTriangle } from 'lucide-react';
 import NotificationBell from '../../components/NotificationBell';
 import ChatWidget from '../../components/ChatWidget';
 import AgeConfirmation from '../../components/AgeConfirmation';
@@ -41,7 +44,6 @@ const adminNavItems = [
   { to: '/app/admin/wallets', label: 'Wallets', icon: WalletIcon },
   { to: '/app/admin/withdrawals', label: 'Withdrawals', icon: Banknote },
   { to: '/app/admin/activity', label: 'Activity', icon: Activity },
-  { to: '/app/security', label: 'Security', icon: ShieldCheck },
 ];
 
 function SidebarContent({ onNavigate, collapsed }) {
@@ -160,6 +162,49 @@ export default function DashboardLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const isAdmin = user?.role === 'ROLE_ADMIN';
+  const isEmailVerified = !!(user?.isVerified || user?.verified);
+  const isUnverified = !isEmailVerified;
+  const { push } = useToast();
+  const [resending, setResending] = useState(false);
+  const [showOtp, setShowOtp] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [verifying, setVerifying] = useState(false);
+  const { refresh, setUser } = useAuth();
+
+  const handleResendVerification = async () => {
+    if (resending) return;
+    setResending(true);
+    try {
+      await sendVerificationOtp('EMAIL');
+      push('Verification email sent! Check your inbox.', 'success');
+      setShowOtp(true);
+    } catch (err) {
+      push(err.friendlyMessage || err.response?.data?.message || 'Failed to send verification email.', 'error');
+    } finally {
+      setResending(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    if (otp.length < 4) return;
+    setVerifying(true);
+    try {
+      const updatedUser = await verifyAccountOtp(otp);
+      push('Email verified successfully!', 'success');
+      if (updatedUser) {
+        setUser(updatedUser);
+      } else {
+        setUser((prev) => (prev ? { ...prev, isVerified: true, verified: true, status: 'VERIFIED' } : prev));
+      }
+      await refresh();
+      setShowOtp(false);
+    } catch (err) {
+      push(err.friendlyMessage || err.response?.data?.message || 'Invalid verification code.', 'error');
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   // Admin routing restriction: Prevent access to user-side pages
   useEffect(() => {
@@ -249,6 +294,48 @@ export default function DashboardLayout() {
             <NotificationBell />
           </div>
         </header>
+
+        {isUnverified && (
+          <div className="bg-carmine/10 border-b border-carmine/20 px-4 sm:px-6 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shrink-0">
+            <div className="flex items-center gap-3 text-carmine">
+              <AlertTriangle size={18} className="shrink-0" />
+              <p className="text-sm">
+                <span className="font-semibold">Action required:</span> Please verify your email to unlock trading, deposits, and full account access.
+              </p>
+            </div>
+            
+            {showOtp ? (
+              <form onSubmit={handleVerifyOtp} className="flex items-center gap-2 w-full sm:w-auto">
+                <input
+                  type="text"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                  placeholder="000000"
+                  maxLength={6}
+                  className="w-24 rounded-lg border border-carmine/30 bg-carmine/5 px-2.5 py-1.5 text-sm text-carmine placeholder:text-carmine/50 outline-none focus:border-carmine/60"
+                  autoFocus
+                />
+                <button
+                  type="submit"
+                  disabled={verifying || otp.length < 4}
+                  className="shrink-0 px-4 py-1.5 rounded-lg bg-carmine/20 text-carmine hover:bg-carmine/30 transition-colors text-xs font-semibold flex items-center gap-2 disabled:opacity-50"
+                >
+                  {verifying && <Loader2 size={12} className="animate-spin" />}
+                  Verify
+                </button>
+              </form>
+            ) : (
+              <button
+                onClick={handleResendVerification}
+                disabled={resending}
+                className="shrink-0 px-4 py-1.5 rounded-lg bg-carmine/20 text-carmine hover:bg-carmine/30 transition-colors text-xs font-semibold flex items-center gap-2 disabled:opacity-50"
+              >
+                {resending && <Loader2 size={12} className="animate-spin" />}
+                Send Verification Code
+              </button>
+            )}
+          </div>
+        )}
 
         <main className="flex-1 min-w-0">
           <Outlet />

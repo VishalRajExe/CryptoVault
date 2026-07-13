@@ -25,7 +25,7 @@ public class WalletTransaction {
 
     private String purpose;
 
-    private Long amount;
+    private java.math.BigDecimal amount;
 
 
 }

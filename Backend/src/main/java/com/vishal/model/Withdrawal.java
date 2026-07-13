@@ -15,7 +15,7 @@ public class Withdrawal {
 
     private WithdrawalStatus status;
 
-    private Long amount;
+    private java.math.BigDecimal amount;
 
     @ManyToOne
     private User user;

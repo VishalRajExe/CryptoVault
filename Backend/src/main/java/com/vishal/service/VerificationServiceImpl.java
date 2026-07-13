@@ -1,5 +1,6 @@
 package com.vishal.service;
 
+import com.vishal.domain.OtpVerificationResult;
 import com.vishal.domain.VerificationType;
 import com.vishal.model.User;
 import com.vishal.model.VerificationCode;
@@ -8,8 +9,7 @@ import com.vishal.utils.OtpUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.Optional;
-import java.util.Random;
+import java.time.LocalDateTime;
 
 @Service
 public class VerificationServiceImpl implements VerificationService{
@@ -27,17 +27,19 @@ public class VerificationServiceImpl implements VerificationService{
         verificationCode.setVerificationType(verificationType);
         verificationCode.setEmail(user.getEmail());
         verificationCode.setMobile(user.getMobile());
+        // Set expiration time to 10 minutes from now
+        verificationCode.setExpiresAt(LocalDateTime.now().plusMinutes(10));
 
         return verificationRepository.save(verificationCode);
     }
 
     @Override
     public VerificationCode findVerificationById(Long id) throws Exception {
-        Optional<VerificationCode> verificationCodeOption=verificationRepository.findById(id);
-        if(verificationCodeOption.isEmpty()){
+        var verificationCodeOptional = verificationRepository.findById(id);
+        if (verificationCodeOptional.isEmpty()) {
             throw new Exception("verification not found");
         }
-        return verificationCodeOption.get();
+        return verificationCodeOptional.get();
     }
 
     @Override
@@ -46,14 +48,21 @@ public class VerificationServiceImpl implements VerificationService{
     }
 
     @Override
-    public Boolean VerifyOtp(String opt, VerificationCode verificationCode) {
-        return opt.equals(verificationCode.getOtp());
+    public OtpVerificationResult verifyOtp(String otp, VerificationCode verificationCode) {
+        // Check if OTP has expired
+        if (verificationCode.getExpiresAt().isBefore(LocalDateTime.now())) {
+            return OtpVerificationResult.EXPIRED;
+        }
+        // Check if OTP matches
+        if (otp.equals(verificationCode.getOtp())) {
+            return OtpVerificationResult.SUCCESS;
+        }
+        return OtpVerificationResult.INVALID;
     }
 
     @Override
     public void deleteVerification(VerificationCode verificationCode) {
         verificationRepository.delete(verificationCode);
     }
-
 
 }

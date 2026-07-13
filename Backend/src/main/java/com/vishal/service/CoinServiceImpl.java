@@ -58,7 +58,7 @@ public class CoinServiceImpl implements CoinService{
         } catch (HttpClientErrorException | HttpServerErrorException | JsonProcessingException e) {
             System.err.println("Error: " + e);
             // Handle error accordingly
-            throw new Exception("please wait for time because you are using free plan");
+            throw new RuntimeException("Please wait a moment, the market data provider is rate limiting us (free plan).");
         }
 
     }
@@ -82,7 +82,7 @@ public class CoinServiceImpl implements CoinService{
             System.err.println("Error: " + e);
             // Handle error accordingly
 //            return null;
-            throw new Exception("you are using free plan");
+            throw new RuntimeException("Rate limit reached for market data. Please try again in a minute.");
         }
 
     }
@@ -122,10 +122,10 @@ public class CoinServiceImpl implements CoinService{
         try {
             fetchAndSaveCoinFromCoinGecko(coinId);
         } catch (HttpClientErrorException | HttpServerErrorException | JsonProcessingException e) {
-            throw new Exception("invalid coin id");
+            throw new RuntimeException("invalid coin id");
         }
         Optional<Coin> refetched = coinRepository.findById(coinId);
-        if (refetched.isEmpty()) throw new Exception("invalid coin id");
+        if (refetched.isEmpty()) throw new RuntimeException("invalid coin id");
         return refetched.get();
     }
 

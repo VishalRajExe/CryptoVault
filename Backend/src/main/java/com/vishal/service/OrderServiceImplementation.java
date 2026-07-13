@@ -117,7 +117,7 @@ public class OrderServiceImplementation implements OrderService {
     public Order buyAsset(Coin coin,double quantity, User user) throws Exception {
         // BUGFIX: was "quantity < 0", which let quantity == 0 silently create a
         // worthless order. Should be rejected as well.
-        if(quantity<=0)throw new Exception("quantity should be > 0");
+        if(quantity<=0)throw new RuntimeException("quantity should be > 0");
         double buyPrice=coin.getCurrentPrice();
 
         OrderItem orderItem = createOrderItem(coin,quantity,buyPrice,0);
@@ -156,7 +156,7 @@ public class OrderServiceImplementation implements OrderService {
     @Transactional(rollbackOn = Exception.class)
     public Order sellAsset(Coin coin,double quantity, User user) throws Exception {
         // BUGFIX: quantity was never validated here at all.
-        if(quantity<=0) throw new Exception("quantity should be > 0");
+        if(quantity<=0) throw new RuntimeException("quantity should be > 0");
 
         double sellPrice =coin.getCurrentPrice();
 
@@ -166,14 +166,14 @@ public class OrderServiceImplementation implements OrderService {
         );
 
         if (assetToSell == null) {
-            throw new Exception("Asset not found for selling");
+            throw new RuntimeException("You do not own this asset to sell.");
         }
 
         // BUGFIX: previously the Order/OrderItem rows were created FIRST and only then
         // was the held quantity checked, deleting the Order again (but never the
         // OrderItem - an orphaned row) on the failure path. Validate up front instead.
         if (assetToSell.getQuantity() < quantity) {
-            throw new Exception("Insufficient quantity to sell");
+            throw new RuntimeException("Insufficient quantity to sell.");
         }
 
         OrderItem orderItem = createOrderItem(coin,quantity, assetToSell.getBuyPrice(), sellPrice);
@@ -207,7 +207,7 @@ public class OrderServiceImplementation implements OrderService {
         } else if (orderType == OrderType.SELL) {
             return sellAsset(coin,quantity, user);
         } else {
-            throw new Exception("Invalid order type");
+            throw new RuntimeException("Invalid order type");
         }
     }
 

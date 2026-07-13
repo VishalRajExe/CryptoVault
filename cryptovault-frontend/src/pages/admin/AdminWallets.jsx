@@ -4,11 +4,14 @@ import { Wallet as WalletIcon } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import { getAllWallets } from '../../api/admin';
 import { formatCurrency } from '../../utils/chartData';
+import Pagination from '../../components/Pagination';
 
 export default function AdminWallets() {
   const [wallets, setWallets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     getAllWallets()
@@ -16,6 +19,9 @@ export default function AdminWallets() {
       .catch((e) => setError(e.friendlyMessage || 'Could not load wallets.'))
       .finally(() => setLoading(false));
   }, []);
+
+  const totalPages = Math.ceil(wallets.length / itemsPerPage);
+  const currentWallets = wallets.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const total = wallets.reduce((s, w) => s + (w.balance || 0), 0);
 
@@ -47,8 +53,9 @@ export default function AdminWallets() {
               <p className="text-sm text-ink-muted">No wallets found.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-ink-faint text-xs uppercase tracking-wide font-mono-tab">
                     <th className="px-5 sm:px-6 py-3 font-normal">Wallet ID</th>
@@ -57,7 +64,7 @@ export default function AdminWallets() {
                   </tr>
                 </thead>
                 <tbody>
-                  {wallets.map((w) => (
+                  {currentWallets.map((w) => (
                     <tr key={w.id} className="border-t border-white/[0.05]">
                       <td className="px-5 sm:px-6 py-3.5 font-mono-tab text-ink">#{w.id}</td>
                       <td className="px-4 py-3.5 text-ink-muted text-xs">
@@ -71,6 +78,12 @@ export default function AdminWallets() {
                 </tbody>
               </table>
             </div>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
+          </>
           )}
         </motion.div>
       </div>
