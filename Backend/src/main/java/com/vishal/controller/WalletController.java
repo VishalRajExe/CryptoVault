@@ -157,7 +157,7 @@ public class WalletController {
                 wallet,
                 WalletTransactionType.WALLET_TRANSFER, reciverWallet.getId().toString(),
                 req.getPurpose(),
-                -req.getAmount()
+                req.getAmount().negate()
         );
 
         walletTransactionService.createTransaction(

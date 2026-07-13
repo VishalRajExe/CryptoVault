@@ -9,10 +9,12 @@ import { AllocationChart, PerformanceCard } from '../../components/PortfolioChar
 import { getUserAssets } from '../../api/trading';
 import { formatCurrency, formatPercent, generateCandles } from '../../utils/chartData';
 import { normalizeCoin } from '../../utils/normalizeCoin';
+import { useReplay } from '../../context/ReplayContext';
 
 const palette = ['#D7FF4F', '#7C5CFF', '#FF3B69', '#4DFFC1', '#9A82FF', '#FF6B8C'];
 
 export default function Portfolio() {
+  const { isReplayMode, replayPortfolio, replayWallet, activeSession } = useReplay();
   const [assets, setAssets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -81,12 +83,13 @@ export default function Portfolio() {
     return () => clearInterval(interval);
   }, [assets.length]);
 
-  const totalValue = assets.reduce((s, a) => s + (a.quantity || 0) * (a.coin?.currentPrice || 0), 0);
-  const totalCost = assets.reduce((s, a) => s + (a.quantity || 0) * (a.buyPrice || 0), 0);
+  const displayAssets = isReplayMode ? replayPortfolio : assets;
+  const totalValue = displayAssets.reduce((s, a) => s + (a.quantity || 0) * (a.coin?.currentPrice || 0), 0);
+  const totalCost = displayAssets.reduce((s, a) => s + (a.quantity || 0) * (a.buyPrice || 0), 0);
   const totalPnl = totalValue - totalCost;
   const pnlPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
 
-  if (loading) {
+  if (loading && !isReplayMode) {
     return <SkeletonPage />;
   }
 
@@ -99,6 +102,12 @@ export default function Portfolio() {
       />
 
       <div className="px-4 sm:px-8 space-y-6">
+        {isReplayMode && (
+          <div className="bg-mint/10 border border-mint/30 rounded-xl p-4 text-center">
+            <div className="text-mint font-display font-semibold text-sm">Viewing Virtual Replay Portfolio</div>
+            <div className="text-mint/70 text-xs">Session: {activeSession?.name}</div>
+          </div>
+        )}
         {/* Stat cards */}
         <motion.div
           initial={{ opacity: 0, y: 14 }}
@@ -125,10 +134,10 @@ export default function Portfolio() {
         </motion.div>
 
         {/* Charts Grid */}
-        {assets.length > 0 && (
+        {displayAssets.length > 0 && (
           <div className="grid md:grid-cols-2 gap-6">
-            <AllocationChart assets={assets} />
-            <PerformanceCard assets={assets} />
+            <AllocationChart assets={displayAssets} />
+            <PerformanceCard assets={displayAssets} />
           </div>
         )}
 
@@ -139,13 +148,13 @@ export default function Portfolio() {
           transition={{ delay: 0.1 }}
           className="rounded-2xl border border-white/[0.07] bg-void-800/60 overflow-hidden backdrop-blur-xl"
         >
-          {error ? (
+          {error && !isReplayMode ? (
             <div className="p-10 text-center text-sm text-ink-muted">{error}</div>
-          ) : assets.length === 0 ? (
+          ) : displayAssets.length === 0 ? (
             <div className="p-12 text-center">
               <Briefcase size={32} className="mx-auto text-ink-faint mb-3" />
               <p className="text-sm text-ink-muted mb-1 font-semibold">Your portfolio is empty</p>
-              <p className="text-xs text-ink-faint">Buy your first asset from live Markets to see it tracked here.</p>
+              <p className="text-xs text-ink-faint">Buy your first asset from {isReplayMode ? 'Virtual' : 'live'} Markets to see it tracked here.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -160,7 +169,7 @@ export default function Portfolio() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/[0.04]">
-                  {assets.map((a, idx) => {
+                  {displayAssets.map((a, idx) => {
                     const value = (a.quantity || 0) * (a.coin?.currentPrice || 0);
                     const pnl = value - (a.quantity || 0) * (a.buyPrice || 0);
                     const up = pnl >= 0;

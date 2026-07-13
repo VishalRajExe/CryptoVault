@@ -35,6 +35,7 @@ export default function InteractiveChart({
   loading = false,
   className = '',
   hideTimeRanges = false,
+  timeVisible = false,
 }) {
   const containerRef = useRef(null);
   const chartRef = useRef(null);
@@ -86,7 +87,7 @@ export default function InteractiveChart({
       },
       timeScale: {
         borderColor: 'rgba(255,255,255,0.06)',
-        timeVisible: selectedRange <= 1,
+        timeVisible: timeVisible || selectedRange <= 1,
         secondsVisible: false,
         fixLeftEdge: true,
         fixRightEdge: true,

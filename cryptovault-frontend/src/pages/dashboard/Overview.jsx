@@ -12,8 +12,10 @@ import {
   ArrowRight,
   Sparkles,
   PieChart as PieChartIcon,
+  Target, Activity
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { useReplay } from '../../context/ReplayContext';
 import PageHeader from '../../components/PageHeader';
 import InteractiveChart from '../../components/InteractiveChart';
 import PageTransition from '../../components/PageTransition';
@@ -72,6 +74,7 @@ function StatCard({ icon: Icon, label, value, sub, accent = 'mint', loading }) {
 
 export default function Overview() {
   const { user } = useAuth();
+  const { isReplayMode, activeSession, replayPerformance, replayWallet, replayPortfolio } = useReplay();
   const [wallet, setWallet] = useState(null);
   const [assets, setAssets] = useState([]);
   const [trending, setTrending] = useState([]);
@@ -202,8 +205,12 @@ export default function Overview() {
     fetchCoinChart(selectedCoinId, chartDays);
   }, [selectedCoinId, chartDays]);
 
-  const portfolioValue = assets.reduce((sum, a) => sum + (a.quantity || 0) * (a.coin?.currentPrice || 0), 0);
-  const totalValue = (wallet?.balance ?? 0) + portfolioValue;
+  const portfolioValue = isReplayMode 
+    ? replayPortfolio.reduce((sum, a) => sum + (a.quantity || 0) * (a.coin?.currentPrice || 0), 0)
+    : assets.reduce((sum, a) => sum + (a.quantity || 0) * (a.coin?.currentPrice || 0), 0);
+    
+  const currentWalletBalance = isReplayMode ? (replayWallet?.balance ?? 0) : (wallet?.balance ?? 0);
+  const totalValue = currentWalletBalance + portfolioValue;
   const firstName = (user?.fullName || '').split(' ')[0];
 
   // Dynamic selected coin parameters
@@ -234,11 +241,17 @@ export default function Overview() {
 
       <div className="px-4 sm:px-8 space-y-6">
         {/* Stat cards */}
+        {isReplayMode && (
+          <div className="bg-mint/10 border border-mint/30 rounded-xl p-4 text-center">
+            <div className="text-mint font-display font-semibold text-sm">Virtual Trading Analytics</div>
+            <div className="text-mint/70 text-xs">Session: {activeSession?.name}</div>
+          </div>
+        )}
         <motion.div initial="hidden" animate="show" variants={stagger} className="grid sm:grid-cols-3 gap-4">
           <StatCard
             icon={WalletIcon}
             label="Wallet balance"
-            value={formatCurrency(wallet?.balance ?? 0)}
+            value={formatCurrency(currentWalletBalance)}
             sub="Available funds to trade"
             loading={false}
           />
@@ -259,6 +272,15 @@ export default function Overview() {
             loading={false}
           />
         </motion.div>
+
+        {isReplayMode && replayPerformance && (
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="grid sm:grid-cols-4 gap-4">
+            <StatCard icon={Target} label="Win Rate" value={formatPercent(replayPerformance.winRate)} accent="neutral" />
+            <StatCard icon={Activity} label="ROI" value={formatPercent(replayPerformance.roi)} accent={replayPerformance.roi >= 0 ? 'mint' : 'neutral'} />
+            <StatCard icon={ArrowDownRight} label="Max Drawdown" value={formatPercent(replayPerformance.maxDrawdown)} accent="neutral" />
+            <StatCard icon={Briefcase} label="Total Trades" value={replayPerformance.totalTrades} accent="neutral" />
+          </motion.div>
+        )}
 
         <div className="grid lg:grid-cols-[1.45fr_1fr] gap-6">
           {/* Market overview chart */}
@@ -372,8 +394,8 @@ export default function Overview() {
                 (() => {
                   const palette = ['#D7FF4F', '#F2F2F0', '#75757A', '#3D3D44', '#FB7185', '#28282D'];
                   const slices = [
-                    { name: 'Cash (wallet)', value: wallet?.balance ?? 0 },
-                    ...assets.map((a) => ({
+                    { name: 'Cash (wallet)', value: currentWalletBalance },
+                    ...(isReplayMode ? replayPortfolio : assets).map((a) => ({
                       name: a.coin?.symbol?.toUpperCase() || 'Asset',
                       value: (a.quantity || 0) * (a.coin?.currentPrice || 0),
                     })),
@@ -482,11 +504,11 @@ export default function Overview() {
             </Link>
           </div>
 
-          {assets.length === 0 ? (
+          {(isReplayMode ? replayPortfolio : assets).length === 0 ? (
             <div className="p-12 text-center">
               <Briefcase size={32} className="mx-auto text-ink-faint mb-3" />
               <p className="text-sm text-ink-muted mb-1 font-semibold">No holdings yet</p>
-              <p className="text-xs text-ink-faint mb-5 max-w-xs mx-auto">Fund your wallet balance, then place your first buy order from the live Markets desk.</p>
+              <p className="text-xs text-ink-faint mb-5 max-w-xs mx-auto">Fund your wallet balance, then place your first buy order from the {isReplayMode ? 'Virtual' : 'live'} Markets desk.</p>
               <Link
                 to="/app/markets"
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-mint text-void font-display font-semibold text-xs shadow-mint-sm hover:bg-mint-400 transition-all hover:shadow-mint"
@@ -507,7 +529,7 @@ export default function Overview() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/[0.04]">
-                  {assets.map((a) => {
+                  {(isReplayMode ? replayPortfolio : assets).map((a) => {
                     const value = (a.quantity || 0) * (a.coin?.currentPrice || 0);
                     const pnl = (a.coin?.currentPrice || 0) - (a.buyPrice || 0);
                     const up = pnl >= 0;

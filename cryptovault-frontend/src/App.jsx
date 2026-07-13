@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
+import { ReplayProvider } from './context/ReplayContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
 
@@ -33,62 +34,64 @@ export default function App() {
   return (
     <AuthProvider>
       <ToastProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Landing />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/oauth/success" element={<OAuthSuccess />} />
-            <Route path="/terms" element={<TermsAndConditions />} />
-            <Route path="/faq" element={<FAQ />} />
+        <ReplayProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Landing />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/oauth/success" element={<OAuthSuccess />} />
+              <Route path="/terms" element={<TermsAndConditions />} />
+              <Route path="/faq" element={<FAQ />} />
 
 
-            {/* Top-level: must match Razorpay's hardcoded-by-config callback_url
-                exactly (PaymentServiceImpl: {FRONTEND_URL}/wallet/{orderId}) */}
-            <Route
-              path="/wallet/:orderId"
-              element={
-                <ProtectedRoute>
-                  <WalletCallback />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/app"
-              element={
-                <ProtectedRoute>
-                  <DashboardLayout />
-                </ProtectedRoute>
-              }
-            >
-              <Route index element={<Overview />} />
-              <Route path="markets" element={<Markets />} />
-              <Route path="portfolio" element={<Portfolio />} />
-              <Route path="orders" element={<Orders />} />
-              <Route path="watchlist" element={<Watchlist />} />
-              <Route path="wallet" element={<WalletPage />} />
-              <Route path="security" element={<Security />} />
+              {/* Top-level: must match Razorpay's hardcoded-by-config callback_url
+                  exactly (PaymentServiceImpl: {FRONTEND_URL}/wallet/{orderId}) */}
+              <Route
+                path="/wallet/:orderId"
+                element={
+                  <ProtectedRoute>
+                    <WalletCallback />
+                  </ProtectedRoute>
+                }
+              />
 
               <Route
-                path="admin"
+                path="/app"
                 element={
-                  <AdminRoute>
-                    <AdminLayout />
-                  </AdminRoute>
+                  <ProtectedRoute>
+                    <DashboardLayout />
+                  </ProtectedRoute>
                 }
               >
-                <Route index element={<AdminOverview />} />
-                <Route path="users" element={<AdminUsers />} />
-                <Route path="orders" element={<AdminOrders />} />
-                <Route path="wallets" element={<AdminWallets />} />
-                <Route path="withdrawals" element={<AdminWithdrawals />} />
-                <Route path="activity" element={<AdminActivity />} />
-              </Route>
-            </Route>
+                <Route index element={<Overview />} />
+                <Route path="markets" element={<Markets />} />
+                <Route path="portfolio" element={<Portfolio />} />
+                <Route path="orders" element={<Orders />} />
+                <Route path="watchlist" element={<Watchlist />} />
+                <Route path="wallet" element={<WalletPage />} />
+                <Route path="security" element={<Security />} />
 
-            <Route path="*" element={<Landing />} />
-          </Routes>
-        </BrowserRouter>
+                <Route
+                  path="admin"
+                  element={
+                    <AdminRoute>
+                      <AdminLayout />
+                    </AdminRoute>
+                  }
+                >
+                  <Route index element={<AdminOverview />} />
+                  <Route path="users" element={<AdminUsers />} />
+                  <Route path="orders" element={<AdminOrders />} />
+                  <Route path="wallets" element={<AdminWallets />} />
+                  <Route path="withdrawals" element={<AdminWithdrawals />} />
+                  <Route path="activity" element={<AdminActivity />} />
+                </Route>
+              </Route>
+
+              <Route path="*" element={<Landing />} />
+            </Routes>
+          </BrowserRouter>
+        </ReplayProvider>
       </ToastProvider>
     </AuthProvider>
   );
